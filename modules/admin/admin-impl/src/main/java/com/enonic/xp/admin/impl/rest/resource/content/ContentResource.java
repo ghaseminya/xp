@@ -432,11 +432,19 @@ public final class ContentResource
         int deleted = 0;
         int pending = 0;
         int failed = 0;
+
+        final FindContentIdsByQueryResult descendantIdsResult = this.contentService.find(
+            ContentQuery.create().size( GET_ALL_SIZE_FLAG ).queryExpr( constructExprToFindChildren( contentsToDeleteList ) ).
+                build() );
+
+        listener.contentResolved( (int) descendantIdsResult.getTotalHits() + contentsToDeleteList.getSize() );
+
         for ( final ContentPath contentToDelete : contentsToDeleteList )
         {
             final DeleteContentParams deleteContentParams = DeleteContentParams.create().
                 contentPath( contentToDelete ).
                 deleteOnline( params.isDeleteOnline() ).
+                callback( listener ).
                 build();
 
             try
@@ -450,6 +458,7 @@ public final class ContentResource
             {
                 try
                 {
+                    listener.contentDeleted( 1 );
                     Content content = contentService.getByPath( contentToDelete );
                     if ( content != null )
                     {
@@ -461,8 +470,6 @@ public final class ContentResource
                     failed++;
                 }
             }
-
-            listener.contentDeleted( 1 );
         }
 
         progressReporter.info( getDeleteMessage( deleted, pending, failed ) );

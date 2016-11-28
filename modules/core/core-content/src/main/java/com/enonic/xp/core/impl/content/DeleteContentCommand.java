@@ -1,6 +1,5 @@
 package com.enonic.xp.core.impl.content;
 
-
 import com.google.common.base.Preconditions;
 
 import com.enonic.xp.branch.Branch;
@@ -88,12 +87,21 @@ final class DeleteContentCommand
 
             result.addDeleted( ContentIds.from( nodes.getAsStrings() ) );
 
+            if ( params.getCallback() != null )
+            {
+                params.getCallback().contentDeleted( nodes.getSize() );
+            }
         }
         else if ( this.params.isDeleteOnline() )
         {
             final NodeIds nodes = deleteNodeInDraftAndMaster( nodeToDelete );
 
             result.addDeleted( ContentIds.from( nodes.getAsStrings() ) );
+
+            if ( params.getCallback() != null )
+            {
+                params.getCallback().contentDeleted( nodes.getSize() );
+            }
         }
         else
         {
@@ -104,6 +112,11 @@ final class DeleteContentCommand
 
             result.addPending( ContentId.from( nodeToDelete.toString() ) );
 
+            if ( params.getCallback() != null )
+            {
+                params.getCallback().contentDeleted( 1 );
+            }
+
             for ( final NodeId child : children )
             {
                 final DeleteContentsResult childDeleteResult = this.doDeleteContent( child );
@@ -112,6 +125,7 @@ final class DeleteContentCommand
                 result.addPending( childDeleteResult.getPendingContents() );
             }
         }
+
         return result.build();
     }
 
