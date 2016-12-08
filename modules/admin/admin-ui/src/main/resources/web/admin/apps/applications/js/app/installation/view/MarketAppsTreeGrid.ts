@@ -262,7 +262,7 @@ export class MarketAppsTreeGrid extends TreeGrid<MarketApplication> {
 
     public static appStatusFormatter(row: number, cell: number, value: any, columnDef: any, node: TreeNode<MarketApplication>) {
         let app = <MarketApplication>node.getData();
-        let statusWrapper = new api.dom.DivEl();
+        let statusWrapper = new api.dom.AEl();
 
         if (!!app.getAppKey()) {
 
@@ -271,6 +271,10 @@ export class MarketAppsTreeGrid extends TreeGrid<MarketApplication> {
 
             statusWrapper.setHtml(MarketAppStatusFormatter.formatStatus(status, progress), false);
             statusWrapper.addClass(MarketAppStatusFormatter.getStatusCssClass(status));
+
+            if (status != MarketAppStatus.NOT_INSTALLED && status != MarketAppStatus.OLDER_VERSION_INSTALLED) {
+                statusWrapper.getEl().setTabIndex(-1);
+            }
         }
 
         return statusWrapper.toString();
