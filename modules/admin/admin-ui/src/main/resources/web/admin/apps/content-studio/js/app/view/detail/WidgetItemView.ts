@@ -33,15 +33,16 @@ export class WidgetItemView extends api.dom.DivEl {
         var deferred = wemQ.defer<void>(),
             uid = (!keepId || !this.uid) ? Date.now().toString() : this.uid,
             linkEl = new LinkEl(this.getFullWidgetUrl(url, uid, contentId)).setAsync(),
-            el = this.getEl(),
+            el = this.getEl().getHTMLElement(),
             onLinkLoaded = ((event: UIEvent) => {
                 var mainContainer = event.target["import"].body;
                 if (mainContainer) {
-                    var html = this.stripOffAssets(mainContainer.innerHTML);
-                    el.getHTMLElement().insertAdjacentHTML('beforeend', html);
-                }
+                    var shadowRoot = el['shadowRoot'] || el['attachShadow']({mode: 'open'});
 
+                    shadowRoot.innerHTML = mainContainer.innerHTML;
+                }
                 linkEl.unLoaded(onLinkLoaded);
+                this.removeChild(linkEl);
                 deferred.resolve(null);
             });
 
