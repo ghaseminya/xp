@@ -52,8 +52,10 @@ public class ImageServiceImpl
     public ByteSource readImage( final ReadImageParams readImageParams )
         throws IOException
     {
+        final long start = System.currentTimeMillis();
         final Path cachedImagePath = getCachedImagePath( readImageParams );
         ByteSource imageByteSource = ImmutableFilesHelper.computeIfAbsent( cachedImagePath, () -> createImage( readImageParams ) );
+        System.out.println( readImageParams.getBinaryReference() + ": " + ( System.currentTimeMillis() - start ) + " ms" );
         return imageByteSource;
     }
 
@@ -182,7 +184,9 @@ public class ImageServiceImpl
         throws IOException
     {
         //Retrieves the buffered image
+        final long startRetrieval = System.currentTimeMillis();
         BufferedImage bufferedImage = retrieveBufferedImage( blob );
+        System.out.println( "Retrieval: " + ( System.currentTimeMillis() - startRetrieval ) + " ms" );
 
         if ( bufferedImage != null )
         {
@@ -200,6 +204,7 @@ public class ImageServiceImpl
 
             //Applies the scaling
             //TODO If/Else due to a difference of treatment between admin and portal. Should be uniform
+            final long startScaling = System.currentTimeMillis();
             if ( readImageParams.getScaleParams() != null )
             {
                 bufferedImage = applyScalingParams( bufferedImage, readImageParams.getScaleParams(), readImageParams.getFocalPoint() );
@@ -208,6 +213,7 @@ public class ImageServiceImpl
             {
                 bufferedImage = applyScalingFunction( bufferedImage, readImageParams );
             }
+            System.out.println( "Scaling: " + ( System.currentTimeMillis() - startScaling ) + " ms" );
 
             //Applies the filters
             if ( !Strings.isNullOrEmpty( readImageParams.getFilterParam() ) )
