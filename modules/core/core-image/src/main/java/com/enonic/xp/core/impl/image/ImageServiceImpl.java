@@ -20,6 +20,7 @@ import org.osgi.service.component.annotations.Component;
 import org.osgi.service.component.annotations.Reference;
 
 import com.google.common.base.Strings;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.hash.HashCode;
 import com.google.common.hash.Hashing;
 import com.google.common.io.BaseEncoding;
@@ -42,7 +43,9 @@ import com.enonic.xp.media.ImageOrientation;
 public class ImageServiceImpl
     implements ImageService
 {
-    private final static int[] orderedPrescaleSizes = new int[]{4096, 2048, 1024};
+    private final static int[] orderedPrescaleSizes = new int[]{1024, 2048, 4096};
+
+    private final static ImmutableSet<String> ALLOWED_PRESCALINGS = ImmutableSet.of( "max", "square", "height", "width" );
 
     private ContentService contentService;
 
@@ -181,6 +184,79 @@ public class ImageServiceImpl
                           hash ).toAbsolutePath();
     }
 
+    private BufferedImage readBufferedImage( final ByteSource blob, final ReadImageParams readImageParams )
+        throws IOException
+    {
+        //Retrieves the buffered image
+        final long startRetrieval = System.currentTimeMillis();
+        BufferedImage bufferedImage = retrievePrescaledBufferedImage( blob, readImageParams );
+        System.out.println( "Retrieval: " + ( System.currentTimeMillis() - startRetrieval ) + " ms" );
+
+        //Applies the scaling
+        //TODO If/Else due to a difference of treatment between admin and portal. Should be uniform
+        final long startScaling = System.currentTimeMillis();
+        if ( readImageParams.getScaleParams() != null )
+        {
+            bufferedImage = applyScalingParams( bufferedImage, readImageParams.getScaleParams(), readImageParams.getFocalPoint() );
+        }
+        else if ( readImageParams.getScaleSize() > 0 && ( bufferedImage.getWidth() >= readImageParams.getScaleSize() ) )
+        {
+            bufferedImage = applyScalingFunction( bufferedImage, readImageParams );
+        }
+        System.out.println( "Scaling: " + ( System.currentTimeMillis() - startScaling ) + " ms" );
+
+        //Applies the filters
+        if ( !Strings.isNullOrEmpty( readImageParams.getFilterParam() ) )
+        {
+            bufferedImage = applyFilters( bufferedImage, readImageParams.getFilterParam() );
+        }
+
+        //Applies alpha channel removal
+        if ( !ImageHelper.supportsAlphaChannel( readImageParams.getFormat() ) )
+        {
+            bufferedImage = ImageHelper.removeAlphaChannel( bufferedImage, readImageParams.getBackgroundColor() );
+        }
+
+        return bufferedImage;
+    }
+
+    private BufferedImage retrievePrescaledBufferedImage( final ByteSource blob, final ReadImageParams readImageParams )
+        throws IOException
+    {
+        if ( canPrescale( readImageParams ) )
+        {
+            final Path prescaledImagePath = getPrescaledImagePath( readImageParams );
+            final ByteSource prescaledImageByteSource =
+                ImmutableFilesHelper.computeIfAbsent( prescaledImagePath, () -> createPrescaleImage( blob, readImageParams ) );
+            try (final InputStream inputStream = prescaledImageByteSource.openStream())
+            {
+                return ImageHelper.toBufferedImage( inputStream );
+            }
+        }
+        else
+        {
+            return retrieveCroppedBufferedImage( blob, readImageParams );
+        }
+    }
+
+    private boolean canPrescale( final ReadImageParams readImageParams )
+        throws IOException
+    {
+        final ScaleParams scaleParams = readImageParams.getScaleParams();
+        if ( scaleParams != null )
+        {
+            if ( ALLOWED_PRESCALINGS.contains( scaleParams.getName() ) )
+            {
+                return true;
+            }
+        }
+        else if ( readImageParams.getScaleSize() > 0 )
+        {
+            return true;
+        }
+        return false;
+    }
+
     private Path getPrescaledImagePath( final ReadImageParams readImageParams )
     {
         final String homeDir = HomeDir.get().toString();
@@ -188,11 +264,31 @@ public class ImageServiceImpl
         //Orientating string value
         final String orientation = readImageParams.getOrientation().toString();
 
-        //Cropping string value
+        //Cropping string value2
         final String cropping = readImageParams.getCropping() == null ? "no-cropping" : readImageParams.getCropping().toString();
 
         //Scale string value
-        String preScaleSize = Integer.toString( getPrescaleSize( readImageParams ) );
+        String scale = "no-scale";
+        final int prescaleSize = getPrescaleSize( readImageParams );
+        if ( readImageParams.getScaleParams() != null )
+        {
+            scale = "scale-" + readImageParams.getScaleParams().getName() + "-" + prescaleSize;
+        }
+        else if ( readImageParams.getScaleSize() > 0 )
+        {
+            if ( readImageParams.isScaleSquare() )
+            {
+                scale = "scale-square-" + prescaleSize;
+            }
+            else if ( readImageParams.isScaleWidth() )
+            {
+                scale = "scale-width-" + prescaleSize;
+            }
+            else
+            {
+                scale = "scale-max-" + prescaleSize;
+            }
+        }
 
         //Format string value
         final String format = readImageParams.getFormat();
@@ -200,7 +296,7 @@ public class ImageServiceImpl
         //Source binary key
         final String binaryKey = contentService.getBinaryKey( readImageParams.getContentId(), readImageParams.getBinaryReference() );
 
-        final String key = String.join( "/", binaryKey, orientation, cropping, preScaleSize, format );
+        final String key = String.join( "/", binaryKey, orientation, cropping, scale, format );
         final HashCode hashCode = Hashing.sha1().hashString( key, StandardCharsets.UTF_8 );
         final String hash = BaseEncoding.base16().encode( hashCode.asBytes() ).toLowerCase();
         return Paths.get( homeDir, "work", "cache", "img", "prescale", hash.substring( 0, 2 ), hash.substring( 2, 4 ),
@@ -209,15 +305,16 @@ public class ImageServiceImpl
 
     private int getPrescaleSize( final ReadImageParams readImageParams )
     {
-//        if ( readImageParams.getScaleParams() != null )
-//        {
-//            readImageParams.getScaleParams().getArguments()
-//        }
-//        else
-//        {
-//            return getPrescaleSize( readImageParams.getScaleSize() );
-//        }
-        return 1024; //TODO
+        final int size;
+        if ( readImageParams.getScaleParams() != null )
+        {
+            size = (int) readImageParams.getScaleParams().getArguments()[0];
+        }
+        else
+        {
+            size = readImageParams.getScaleSize();
+        }
+        return getPrescaleSize( size );
     }
 
     private int getPrescaleSize( final int size )
@@ -232,58 +329,20 @@ public class ImageServiceImpl
         return size;
     }
 
-    private BufferedImage readBufferedImage( final ByteSource blob, final ReadImageParams readImageParams )
-        throws IOException
-    {
-        //Retrieves the buffered image
-        final long startRetrieval = System.currentTimeMillis();
-        BufferedImage bufferedImage = retrievePrescaledBufferedImage( blob, readImageParams );
-        System.out.println( "Retrieval: " + ( System.currentTimeMillis() - startRetrieval ) + " ms" );
-
-        if ( bufferedImage != null )
-        {
-            //Applies the scaling
-            //TODO If/Else due to a difference of treatment between admin and portal. Should be uniform
-            final long startScaling = System.currentTimeMillis();
-            if ( readImageParams.getScaleParams() != null )
-            {
-                bufferedImage = applyScalingParams( bufferedImage, readImageParams.getScaleParams(), readImageParams.getFocalPoint() );
-            }
-            else if ( readImageParams.getScaleSize() > 0 && ( bufferedImage.getWidth() >= readImageParams.getScaleSize() ) )
-            {
-                bufferedImage = applyScalingFunction( bufferedImage, readImageParams );
-            }
-            System.out.println( "Scaling: " + ( System.currentTimeMillis() - startScaling ) + " ms" );
-
-            //Applies the filters
-            if ( !Strings.isNullOrEmpty( readImageParams.getFilterParam() ) )
-            {
-                bufferedImage = applyFilters( bufferedImage, readImageParams.getFilterParam() );
-            }
-
-            //Applies alpha channel removal
-            if ( !ImageHelper.supportsAlphaChannel( readImageParams.getFormat() ) )
-            {
-                bufferedImage = ImageHelper.removeAlphaChannel( bufferedImage, readImageParams.getBackgroundColor() );
-            }
-        }
-
-        return bufferedImage;
-    }
-
-    private BufferedImage retrievePrescaledBufferedImage( final ByteSource blob, final ReadImageParams readImageParams )
-        throws IOException
-    {
-        final Path prescaledImagePath = getPrescaledImagePath( readImageParams );
-        final ByteSource prescaledImageByteSource =
-            ImmutableFilesHelper.computeIfAbsent( prescaledImagePath, () -> createPrescaleImage( blob, readImageParams ) );
-        try (final InputStream inputStream = prescaledImageByteSource.openStream())
-        {
-            return ImageHelper.toBufferedImage( inputStream );
-        }
-    }
-
     private ByteSource createPrescaleImage( final ByteSource blob, final ReadImageParams readImageParams )
+        throws IOException
+    {
+        BufferedImage bufferedImage = retrieveCroppedBufferedImage( blob, readImageParams );
+
+        //Applies the prescaling
+        final int prescaleSize = getPrescaleSize( readImageParams );
+        bufferedImage = new ScaleWidthFunction( prescaleSize ).scale( bufferedImage );
+
+        return serializeImage( bufferedImage, readImageParams.getFormat() );
+    }
+
+
+    private BufferedImage retrieveCroppedBufferedImage( final ByteSource blob, final ReadImageParams readImageParams )
         throws IOException
     {
         BufferedImage bufferedImage = retrieveBufferedImage( blob );
@@ -300,11 +359,7 @@ public class ImageServiceImpl
             bufferedImage = applyCropping( bufferedImage, readImageParams.getCropping() );
         }
 
-        //Applies the prescaling
-        final int prescaleSize = getPrescaleSize( readImageParams );
-        bufferedImage = new ScaleWidthFunction( prescaleSize ).scale( bufferedImage );
-
-        return serializeImage( bufferedImage, readImageParams.getFormat() );
+        return bufferedImage;
     }
 
     private BufferedImage retrieveBufferedImage( final ByteSource blob )
