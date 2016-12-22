@@ -195,14 +195,7 @@ public class ImageServiceImpl
         //Applies the scaling
         //TODO If/Else due to a difference of treatment between admin and portal. Should be uniform
         final long startScaling = System.currentTimeMillis();
-        if ( readImageParams.getScaleParams() != null )
-        {
-            bufferedImage = applyScalingParams( bufferedImage, readImageParams.getScaleParams(), readImageParams.getFocalPoint() );
-        }
-        else if ( readImageParams.getScaleSize() > 0 && ( bufferedImage.getWidth() >= readImageParams.getScaleSize() ) )
-        {
-            bufferedImage = applyScalingFunction( bufferedImage, readImageParams );
-        }
+        bufferedImage = applyScaling( bufferedImage, readImageParams, null );
         System.out.println( "Scaling: " + ( System.currentTimeMillis() - startScaling ) + " ms" );
 
         //Applies the filters
@@ -336,7 +329,7 @@ public class ImageServiceImpl
 
         //Applies the prescaling
         final int prescaleSize = getPrescaleSize( readImageParams );
-        bufferedImage = new ScaleWidthFunction( prescaleSize ).scale( bufferedImage );
+        bufferedImage = applyScaling( bufferedImage, readImageParams, prescaleSize );
 
         return serializeImage( bufferedImage, readImageParams.getFormat() );
     }
@@ -381,6 +374,29 @@ public class ImageServiceImpl
 
     }
 
+    private BufferedImage applyScaling( final BufferedImage bufferedImage, final ReadImageParams readImageParams,
+                                        final Integer forcedScaleSize )
+    {
+        if ( readImageParams.getScaleParams() != null )
+        {
+            if ( forcedScaleSize != null )
+            {
+                final Integer[] scaleParamsArguments = new Integer[]{forcedScaleSize};
+                final ScaleParams scaleParams = new ScaleParams( readImageParams.getScaleParams().getName(), scaleParamsArguments );
+                return applyScalingParams( bufferedImage, scaleParams, readImageParams.getFocalPoint() );
+            }
+            else
+            {
+                return applyScalingParams( bufferedImage, readImageParams.getScaleParams(), readImageParams.getFocalPoint() );
+            }
+        }
+        else if ( readImageParams.getScaleSize() > 0 && ( bufferedImage.getWidth() >= readImageParams.getScaleSize() ) )
+        {
+            return applyScalingFunction( bufferedImage, readImageParams, forcedScaleSize );
+        }
+        return bufferedImage;
+    }
+
 
     private BufferedImage applyScalingParams( final BufferedImage sourceImage, final ScaleParams scaleParams, final FocalPoint focalPoint )
     {
@@ -388,19 +404,21 @@ public class ImageServiceImpl
         return imageScaleFunction.scale( sourceImage );
     }
 
-    private BufferedImage applyScalingFunction( final BufferedImage bufferedImage, final ReadImageParams readImageParams )
+    private BufferedImage applyScalingFunction( final BufferedImage bufferedImage, final ReadImageParams readImageParams,
+                                                final Integer forcedScaleSize )
     {
+        final int scaleSize = forcedScaleSize == null ? readImageParams.getScaleSize() : forcedScaleSize;
         if ( readImageParams.isScaleSquare() )
         {
-            return new ScaleSquareFunction( readImageParams.getScaleSize() ).scale( bufferedImage );
+            return new ScaleSquareFunction( scaleSize ).scale( bufferedImage );
         }
         else if ( readImageParams.isScaleWidth() )
         {
-            return new ScaleWidthFunction( readImageParams.getScaleSize() ).scale( bufferedImage );
+            return new ScaleWidthFunction( scaleSize ).scale( bufferedImage );
         }
         else
         {
-            return new ScaleMaxFunction( readImageParams.getScaleSize() ).scale( bufferedImage );
+            return new ScaleMaxFunction( scaleSize ).scale( bufferedImage );
         }
     }
 
