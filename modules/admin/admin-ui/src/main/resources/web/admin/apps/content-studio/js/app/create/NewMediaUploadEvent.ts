@@ -9,10 +9,13 @@ export class NewMediaUploadEvent extends api.event.Event {
 
     private parentContent: Content;
 
-    constructor(items: UploadItem<Content>[], parentContent: Content) {
+    private targetWindow: Window;
+
+    constructor(items: UploadItem<Content>[], parentContent: Content, targetWindow?: Window) {
         super();
         this.uploadItems = items;
         this.parentContent = parentContent;
+        this.targetWindow = targetWindow;
     }
 
     getUploadItems(): UploadItem<Content>[] {
@@ -21,6 +24,11 @@ export class NewMediaUploadEvent extends api.event.Event {
 
     getParentContent(): Content {
         return this.parentContent;
+    }
+
+
+    getTargetWindow(): Window {
+        return this.targetWindow;
     }
 
     static on(handler: (event: NewMediaUploadEvent) => void) {

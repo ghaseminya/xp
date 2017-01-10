@@ -9,10 +9,13 @@ export class NewContentEvent extends api.event.Event {
 
     private parentContent: Content;
 
-    constructor(contentType: ContentTypeSummary, parentContent: Content) {
+    private targetWindow: Window;
+
+    constructor(contentType: ContentTypeSummary, parentContent: Content, targetWindow?: Window) {
         super();
         this.contentType = contentType;
         this.parentContent = parentContent;
+        this.targetWindow = targetWindow;
     }
 
     getContentType(): ContentTypeSummary {
@@ -21,6 +24,10 @@ export class NewContentEvent extends api.event.Event {
 
     getParentContent(): Content {
         return this.parentContent;
+    }
+
+    getTargetWindow(): Window {
+        return this.targetWindow;
     }
 
     static on(handler: (event: NewContentEvent) => void) {

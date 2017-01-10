@@ -339,9 +339,13 @@ module api.dom {
             this.notifyShown(this, true);
         }
 
-        hide() {
+        hide(callback?: Function) {
             // Using jQuery to hide, since it seems to contain some smartness
-            wemjq(this.el.getHTMLElement()).hide();
+            wemjq(this.el.getHTMLElement()).hide(1, () => {
+                if (callback) {
+                    callback();
+                }
+            });
             this.notifyHidden(this);
         }
 

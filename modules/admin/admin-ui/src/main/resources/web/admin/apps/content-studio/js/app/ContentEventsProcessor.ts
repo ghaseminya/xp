@@ -13,15 +13,25 @@ import ShowBrowsePanelEvent = api.app.ShowBrowsePanelEvent;
 
 export class ContentEventsProcessor {
 
-    static openWizardTab(params: ContentWizardPanelParams, tabId: AppBarTabId): Window {
-        let wizardUrl = 'content-studio#/' + params.toString(),
+    static openWizardTab(params: ContentWizardPanelParams, tabId: AppBarTabId, targetWindow?: Window): Window {
+        let wizardUrl = `content-studio#/${params.toString()}`,
             isNew = !params.contentId,
             wizardId;
-        if (!isNew && navigator.userAgent.search("Chrome") > -1) {
+
+        if (targetWindow) {
+            targetWindow.location.href = wizardUrl;
+            return targetWindow;
+        }
+
+        if (navigator.userAgent.search("Chrome") > -1) {
             // add tab id for browsers that can focus tabs by id
-            // don't do it for new to be able to create multiple
-            // contents of the same type simultaneously
-            wizardId = tabId.toString();
+            // add timestamp to new wizard id to be able to open multiple
+            // wizards of the same type simultaneously
+            if (!isNew) {
+                wizardId = tabId.toString();
+            } else {
+                wizardId = `${tabId.toString()}-${Date.now()}`;
+            }
         }
         return window.open(wizardUrl, wizardId);
     }
@@ -37,7 +47,7 @@ export class ContentEventsProcessor {
             .setParentContentId(newContentEvent.getParentContent() ? newContentEvent.getParentContent().getContentId() : undefined)
             .setCreateSite(newContentEvent.getContentType().isSite());
 
-        ContentEventsProcessor.openWizardTab(wizardParams, tabId);
+        ContentEventsProcessor.openWizardTab(wizardParams, tabId, newContentEvent.getTargetWindow());
     }
 
     static handleEdit(event: api.content.event.EditContentEvent) {

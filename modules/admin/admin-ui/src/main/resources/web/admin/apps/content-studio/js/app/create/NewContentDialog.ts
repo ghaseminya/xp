@@ -137,13 +137,15 @@ export class NewContentDialog extends api.ui.dialog.ModalDialog {
     }
 
     private closeAndFireEventFromMediaUpload(event: FileUploadStartedEvent<Content>) {
-        this.close();
-        setTimeout(() => new NewMediaUploadEvent(event.getUploadItems(), this.parentContent).fire(), 1);
+        this.close(() => {
+            new NewMediaUploadEvent(event.getUploadItems(), this.parentContent).fire();
+        });
     }
 
     private closeAndFireEventFromContentType(event: NewContentDialogItemSelectedEvent) {
-        this.close();
-        setTimeout(() => new NewContentEvent(event.getItem().getContentType(), this.parentContent).fire(), 1);
+        this.close(() => {
+            new NewContentEvent(event.getItem().getContentType(), this.parentContent).fire();
+        });
     }
 
     private appendElementsToDialog() {
@@ -203,15 +205,15 @@ export class NewContentDialog extends api.ui.dialog.ModalDialog {
         this.loadContentTypes();
     }
 
-    hide() {
-        super.hide();
+    hide(callback?: Function) {
         this.mostPopularContentTypes.hide();
         this.clearAllItems();
+        super.hide(callback);
     }
 
-    close() {
+    close(callback?: Function) {
         this.fileInput.reset();
-        super.close();
+        super.close(callback);
     }
 
     private loadContentTypes() {
