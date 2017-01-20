@@ -34,7 +34,6 @@ module api.util.htmlarea.editor {
         ].join(' | ');
 
         private plugins: string[] = [
-            'advlist',
             'autoresize',
             'charmap',
             'code',
