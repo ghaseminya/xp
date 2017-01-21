@@ -182,24 +182,15 @@ module api.util.htmlarea.editor {
             }
         }
 
-        private initStatusBarPlugins() {
-            this.includeTool('|');
-
-            if (this.editableSourceCode) {
-                if (!this.isToolExcluded('code')) {
-                    this.includeTool('code');
-                }
-                this.plugins.concat('code');
-            }
-
-            // 'fullscreen' is automatically hidden in inline mode
-            this.includeTool('fullscreen');
-        }
-
         public createEditor(): wemQ.Promise<HtmlAreaEditor> {
             this.checkRequiredFieldsAreSet();
 
-            this.initStatusBarPlugins();
+            this.includeTool('|');
+            if (this.editableSourceCode && !this.isToolExcluded('code')) {
+                this.includeTool('code');
+            }
+            // 'fullscreen' is automatically hidden in inline mode
+            this.includeTool('fullscreen');
 
             let deferred = wemQ.defer<HtmlAreaEditor>();
 
@@ -257,7 +248,7 @@ module api.util.htmlarea.editor {
                 browser_spellcheck: true,
                 verify_html: false,
                 verify_css_classes: false,
-                plugins: this.plugins,
+                plugins: this.editableSourceCode ? this.plugins.concat('code') : this.plugins,
                 external_plugins: {
                     link: this.assetsUri + '/common/js/util/htmlarea/plugins/link.js',
                     anchor: this.assetsUri + '/common/js/util/htmlarea/plugins/anchor.js',
