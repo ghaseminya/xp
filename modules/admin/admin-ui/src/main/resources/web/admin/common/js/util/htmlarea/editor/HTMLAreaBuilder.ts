@@ -30,7 +30,8 @@ module api.util.htmlarea.editor {
             'bullist numlist outdent indent',
             'charmap anchor image macro link unlink',
             'table',
-            'pastetext'
+            'pastetext',
+            'code fullscreen'
         ].join(' | ');
 
         private plugins: string[] = [

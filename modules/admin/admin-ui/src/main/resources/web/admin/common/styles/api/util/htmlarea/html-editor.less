@@ -131,6 +131,24 @@
       border-width: 0;
       margin-left: 0;
     }
+
+    &.mce-last {
+      position: absolute;
+      bottom: 0;
+      right: 0;
+      margin: 0;
+      padding: 0;
+      border: none;
+      z-index: 1;
+      .mce-btn {
+        button {
+          height: 28px;
+          padding: 0 6px;
+          line-height: 28px;
+          box-sizing: border-box;
+        }
+      }
+    }
   }
 
 }
@@ -195,12 +213,5 @@
 .mce-fullscreen {
   .mce-toolbar .mce-container-body.mce-flow-layout {
     text-align: center;
-  }
-  .mce-btn.mce-last.mce-active {
-    margin-right: 8px;
-
-    button {
-      padding-left: 6px;
-    }
   }
 }
