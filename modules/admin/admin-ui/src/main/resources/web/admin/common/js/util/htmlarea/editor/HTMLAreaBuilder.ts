@@ -31,12 +31,12 @@ module api.util.htmlarea.editor {
             'charmap anchor image macro link unlink',
             'table',
             'pastetext'
+            // 'code fullscreen' are added later
         ].join(' | ');
 
         private plugins: string[] = [
             'autoresize',
             'charmap',
-            'code',
             'directionality',
             'fullscreen',
             'hr',
@@ -48,6 +48,7 @@ module api.util.htmlarea.editor {
             'textcolor',
             'visualblocks',
             'visualchars'
+            // 'code' will be included if source code is editable
         ];
 
         setEditableSourceCode(value: boolean): HTMLAreaBuilder {
@@ -159,7 +160,7 @@ module api.util.htmlarea.editor {
         }
 
         private includeTool(tool: string) {
-            this.tools += ' ' + tool;
+            this.tools += ` ${tool}`;
         }
 
         setTools(tools: any): HTMLAreaBuilder {
@@ -181,16 +182,24 @@ module api.util.htmlarea.editor {
             }
         }
 
+        private initStatusBarPlugins() {
+            this.includeTool('|');
+
+            if (this.editableSourceCode) {
+                if (!this.isToolExcluded('code')) {
+                    this.includeTool('code');
+                }
+                this.plugins.concat('code');
+            }
+
+            // 'fullscreen' is automatically hidden in inline mode
+            this.includeTool('fullscreen');
+        }
+
         public createEditor(): wemQ.Promise<HtmlAreaEditor> {
             this.checkRequiredFieldsAreSet();
 
-            console.log(`Exclude 'fullscreen': ${this.isToolExcluded('fullscreen')}`);
-            console.log(`Exclude 'code': ${this.isToolExcluded('code')}`);
-            console.log(`Inline: ${this.inline}`);
-
-            if (this.inline && this.editableSourceCode && !this.isToolExcluded('code')) {
-                this.includeTool('code');
-            }
+            this.initStatusBarPlugins();
 
             let deferred = wemQ.defer<HtmlAreaEditor>();
 
@@ -248,7 +257,7 @@ module api.util.htmlarea.editor {
                 browser_spellcheck: true,
                 verify_html: false,
                 verify_css_classes: false,
-                plugins: this.editableSourceCode ? this.plugins.concat('code') : this.plugins,
+                plugins: this.plugins,
                 external_plugins: {
                     link: this.assetsUri + '/common/js/util/htmlarea/plugins/link.js',
                     anchor: this.assetsUri + '/common/js/util/htmlarea/plugins/anchor.js',
