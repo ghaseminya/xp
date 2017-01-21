@@ -184,6 +184,10 @@ module api.util.htmlarea.editor {
         public createEditor(): wemQ.Promise<HtmlAreaEditor> {
             this.checkRequiredFieldsAreSet();
 
+            console.log(`Exclude 'fullscreen': ${this.isToolExcluded('fullscreen')}`);
+            console.log(`Exclude 'code': ${this.isToolExcluded('code')}`);
+            console.log(`Inline: ${this.inline}`);
+
             if (this.inline && this.editableSourceCode && !this.isToolExcluded('code')) {
                 this.includeTool('code');
             }
